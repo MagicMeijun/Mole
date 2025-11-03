@@ -20,6 +20,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.saveable.rememberSaveable
+
 
 
 class MainActivity : ComponentActivity() {
@@ -38,7 +40,7 @@ class MainActivity : ComponentActivity() {
 
 fun MoleScreen() {
 
-    var counter by remember { mutableLongStateOf(0) }
+    var counter by rememberSaveable { mutableLongStateOf(0) }
 
     Box (
 
