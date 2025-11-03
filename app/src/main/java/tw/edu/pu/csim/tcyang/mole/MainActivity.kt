@@ -119,6 +119,9 @@ fun MoleScreen(moleViewModel: MoleViewModel = viewModel()) {
     Column(modifier = Modifier.fillMaxSize()) {
         // 顯示分數或遊戲結束文字
         Text(
+            text = "411300467 李維駿"
+        )
+        Text(
             text = if (!gameOver) "分數: $counter \n時間: $stay 秒"
             else "遊戲結束！\n你的分數: $counter",
             modifier = Modifier
