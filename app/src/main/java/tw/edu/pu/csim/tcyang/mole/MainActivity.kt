@@ -4,25 +4,26 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import tw.edu.pu.csim.tcyang.mole.ui.theme.MoleTheme
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.runtime.saveable.rememberSaveable
-
-
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import tw.edu.pu.csim.tcyang.mole.ui.theme.MoleTheme
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,38 +37,128 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Composable
+// --- ViewModel ---
+class MoleViewModel : ViewModel() {
+    var counter by mutableStateOf(0)
+        private set
+    var stay by mutableStateOf(60)
+        private set
 
-fun MoleScreen() {
+    var maxX by mutableStateOf(0)
+        private set
+    var maxY by mutableStateOf(0)
+        private set
 
-    var counter by rememberSaveable { mutableLongStateOf(0) }
+    var offsetX by mutableStateOf(0)
+        private set
+    var offsetY by mutableStateOf(0)
+        private set
 
-    Box (
+    private var gameOver by mutableStateOf(false)
+    private var jobActive = false
 
-        modifier = Modifier.fillMaxSize(),
-
-        Alignment.Center
-
-    ) {
-
-        Text(counter.toString())
-
+    fun incrementCounter() {
+        if (!gameOver) counter++
     }
 
-    Image(
+    fun getArea(gameSize: IntSize, moleSize: Int) {
+        maxX = (gameSize.width - moleSize).coerceAtLeast(0)
+        maxY = (gameSize.height - moleSize).coerceAtLeast(0)
+        moveMole()
+    }
 
-        painter = painterResource(id = R.drawable.mole),
+    fun moveMole() {
+        if (!gameOver) {
+            offsetX = (0..maxX).random()
+            offsetY = (0..maxY).random()
+        }
+    }
 
-        contentDescription = "地鼠",
+    fun startGame() {
+        if (jobActive) return  // 避免重複啟動
+        gameOver = false
+        jobActive = true
+        viewModelScope.launch {
+            while (stay > 0) {
+                delay(1000L)
+                stay--
+                moveMole()
+            }
+            gameOver = true
+            jobActive = false
+        }
+    }
 
-        modifier = Modifier
+    fun resetGame() {
+        counter = 0
+        stay = 60
+        gameOver = false
+        moveMole()
+        startGame()
+    }
 
-            .offset { IntOffset(50, 200) }
+    fun isGameOver(): Boolean = gameOver
+}
 
-            .size(150.dp)
+// --- Composable ---
+@Composable
+fun MoleScreen(moleViewModel: MoleViewModel = viewModel()) {
+    val counter = moleViewModel.counter
+    val stay = moleViewModel.stay
+    val gameOver = moleViewModel.isGameOver()
 
-            .clickable { counter++ }
+    val density = LocalDensity.current
+    val moleSizeDp = 150.dp
+    val moleSizePx = with(density) { moleSizeDp.roundToPx() }
 
-    )
+    // 啟動遊戲
+    LaunchedEffect(Unit) {
+        moleViewModel.startGame()
+    }
 
+    Column(modifier = Modifier.fillMaxSize()) {
+        // 顯示分數或遊戲結束文字
+        Text(
+            text = if (!gameOver) "分數: $counter \n時間: $stay 秒"
+            else "遊戲結束！\n你的分數: $counter",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            textAlign = TextAlign.Center
+        )
+
+        // 遊戲區域
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .onSizeChanged { intSize ->
+                    moleViewModel.getArea(intSize, moleSizePx)
+                },
+            contentAlignment = Alignment.TopStart
+        ) {
+            if (!gameOver) {
+                Image(
+                    painter = painterResource(id = R.drawable.mole),
+                    contentDescription = "地鼠",
+                    modifier = Modifier
+                        .offset { IntOffset(moleViewModel.offsetX, moleViewModel.offsetY) }
+                        .size(moleSizeDp)
+                        .clickable { moleViewModel.incrementCounter() }
+                )
+            }
+        }
+
+        // 重新開始按鈕
+        if (gameOver) {
+            Button(
+                onClick = { moleViewModel.resetGame() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Text("重新開始")
+            }
+        }
+    }
 }
